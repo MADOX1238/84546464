@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>الدردشة العامة</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        margin: 0;
+        background-color: #f4f4f4;
+      }
+      #chat-box {
+        flex: 1;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        margin: 10px;
+        padding: 10px;
+        overflow-y: auto;
+        background-color: #fff;
+      }
+      #message-input {
+        width: calc(100% - 100px);
+        padding: 10px;
+        font-size: 16px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        margin: 10px;
+        box-sizing: border-box;
+      }
+      #send-button {
+        width: 90px;
+        padding: 10px;
+        font-size: 16px;
+        cursor: pointer;
+        margin: 10px;
+      }
+      .message {
+        margin-bottom: 10px;
+        padding: 5px;
+        border-bottom: 1px solid #ddd;
+      }
+      .username {
+        font-weight: bold;
+        margin-right: 5px;
+        display: inline-block;
+        padding: 2px 5px;
+        border-radius: 4px;
+      }
+      .text {
+        color: #333;
+      }
+      #online-users {
+        border-top: 1px solid #ccc;
+        padding: 10px;
+        background-color: #fff;
+        margin: 10px;
+        border-radius: 8px;
+      }
+    </style>
+</head>
+<body>
+    <h1>الدردشة العامة</h1>
+    <div id="chat-box"></div>
+    <div style="display: flex; align-items: center; margin: 10px;">
+        <input type="text" id="message-input" placeholder="اكتب رسالة...">
+        <button id="send-button">إرسال</button>
+    </div>
+    <div id="online-users">
+      <h2>المتواجدين أونلاين</h2>
+      <ul id="online-users-list"></ul>
+    </div>
+
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+      import { getDatabase, ref, set, onValue, remove, onDisconnect } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+
+      // Your web app's Firebase configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyBjPK9HnKPxrLL9iQvfkj05npViu_5cAdA",
+        authDomain: "mad-oos.firebaseapp.com",
+        databaseURL: "https://mad-oos-default-rtdb.firebaseio.com",
+        projectId: "mad-oos",
+        storageBucket: "mad-oos.appspot.com",
+        messagingSenderId: "654045460789",
+        appId: "1:654045460789:web:a61dc378b49603e27b747c",
+        measurementId: "G-FDXV472NP8"
+      };
+
+      // Initialize Firebase
+      const app = initializeApp(firebaseConfig);
+      const database = getDatabase(app);
+
+      document.addEventListener('DOMContentLoaded', function () {
+        const chatBox = document.getElementById('chat-box');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const onlineUsersList = document.getElementById('online-users-list');
+
+        const username = localStorage.getItem('username');
+        const userColor = localStorage.getItem('userColor');
+        
+        if (!username) {
+          window.location.href = 'login.html';
+        }
+
+        // Function to clear old online users and update the list
+        const clearAndUpdateOnlineUsers = () => {
+          const onlineUsersRef = ref(database, 'onlineUsers');
+          onValue(onlineUsersRef, (snapshot) => {
+            snapshot.forEach((childSnapshot) => {
+              remove(childSnapshot.ref);
+            });
+            // After clearing, add the current user
+            addUserToOnline();
+          });
+        };
+
+        // Function to add the current user to the online users list
+        const addUserToOnline = () => {
+          const onlineUsersRef = ref(database, 'onlineUsers/' + username);
+          set(onlineUsersRef, {
+            username: username,
+            userColor: userColor
+          });
+          onDisconnect(onlineUsersRef).remove();
+        };
+
+        // Function to update online users list
+        const updateOnlineUsers = () => {
+          const onlineUsersRef = ref(database, 'onlineUsers');
+          onValue(onlineUsersRef, (snapshot) => {
+            onlineUsersList.innerHTML = '';
+            snapshot.forEach((childSnapshot) => {
+              const user = childSnapshot.val();
+              const userElement = document.createElement('li');
+              userElement.textContent = user.username;
+              onlineUsersList.appendChild(userElement);
+            });
+          });
+        };
+
+        // Load messages
+        const loadMessages = () => {
+          const messagesRef = ref(database, 'messages');
+          onValue(messagesRef, (snapshot) => {
+            chatBox.innerHTML = '';
+            snapshot.forEach((childSnapshot) => {
+              const message = childSnapshot.val();
+              if (message.text && message.text.trim() !== 'undefined') {
+                const messageElement = document.createElement('div');
+                messageElement.className = 'message';
+                messageElement.innerHTML = `<span class="username" style="color: ${message.userColor};">${message.username}:</span> <span class="text">${message.text}</span>`;
+                chatBox.appendChild(messageElement);
+              }
+            });
+            chatBox.scrollTop = chatBox.scrollHeight; // Auto-scroll to the bottom
+          });
+        };
+
+        // Send message
+        sendButton.addEventListener('click', function () {
+          const message = messageInput.value;
+          if (message.trim() !== '') {
+            const messagesRef = ref(database, 'messages/' + Date.now());
+            set(messagesRef, {
+              text: message,
+              username: username,
+              userColor: userColor,
+              timestamp: Date.now()
+            });
+            messageInput.value = '';
+          }
+        });
+
+        // Initialize the app
+        clearAndUpdateOnlineUsers();
+        updateOnlineUsers();
+
+        // Load messages
+        loadMessages();
+      });
+    </script>
+
+</body></html>
